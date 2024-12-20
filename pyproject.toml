@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "pytorch-llama-3"
+version = "0.1.0"
+description = ""
+authors = ["ishan-modi <ishan.modi24@gmail.com>"]
+readme = "README.md"
+packages = [{include = "pytorch_llama_3"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+torch = "2.5.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
