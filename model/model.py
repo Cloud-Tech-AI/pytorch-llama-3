@@ -1,12 +1,12 @@
 import torch
 from torch import nn
 
-from .config import ModelConfig
+from .config import ModelArgs
 from .base import RMSNorm, Rope, SelfAttention, FeedForward, TransformerBlock
 
 
-class Llama3(nn.Module):
-    def __init__(self, params: ModelConfig):
+class Transformer(nn.Module):
+    def __init__(self, params: ModelArgs):
         super().__init__()
         self.params = params
         # self.vocab_size = params.vocab_size

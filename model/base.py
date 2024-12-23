@@ -4,7 +4,7 @@ from torch import nn
 import torch.nn.functional as F
 from typing import Optional
 
-from .config import ModelConfig
+from .config import ModelArgs
 
 
 class RMSNorm(nn.Module):
@@ -90,7 +90,7 @@ class GQA:
         )
 
 
-class FeedForward(nn.Modules):
+class FeedForward(nn.Module):
     def __init__(
         self,
         dim: int,
@@ -112,8 +112,8 @@ class FeedForward(nn.Modules):
         return self.w2(F.silu(self.w1(x)) * self.w3(x))
 
 
-class SelfAttention(nn.Modules):
-    def __init__(self, params: ModelConfig):
+class SelfAttention(nn.Module):
+    def __init__(self, params: ModelArgs):
         super().__init__()
         self.n_heads = params.n_heads
         self.n_kv_heads = params.n_kv_heads
@@ -176,7 +176,7 @@ class SelfAttention(nn.Modules):
 
 
 class TransformerBlock(nn.Module):
-    def __init__(self, params: ModelConfig):
+    def __init__(self, params: ModelArgs):
         super().__init__()
         self.self_attn = SelfAttention(params)
         self.ffn = FeedForward(
