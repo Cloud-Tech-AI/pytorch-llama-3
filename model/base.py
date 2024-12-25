@@ -11,17 +11,17 @@ class RMSNorm(nn.Module):
     def __init__(self, dim: int, norm_eps: float = 1e-8):
         super().__init__()
         self.norm_eps = norm_eps
-        self.gamma = nn.Parameter(torch.ones(dim))
+        self.weight = nn.Parameter(torch.ones(dim))
 
     def rms_norm(self, x: torch.Tensor):
         return x * torch.rsqrt(torch.mean(x**2, dim=-1, keepdim=True) + self.norm_eps)
 
     def forward(self, x: torch.Tensor):
         # x: [batch, seq, dim]
-        # gamma: [dim]
+        # weight(gamma): [dim]
         # output: [batch, seq, dim]
-        output = self.rms_norm(x.float()).as_type(x)
-        return output * self.gamma
+        output = self.rms_norm(x.float()).type_as(x)
+        return output * self.weight
 
 
 class Rope:
@@ -44,19 +44,21 @@ class Rope:
 
         return complex_freqs
 
-    def reshape_for_broadcast(self, x: torch.Tensor):
+    def reshape_for_broadcast(self, x: torch.Tensor, freqs_cis: torch.Tensor):
         # x: [batch, seq, num_heads, head_dim // 2]
-        # freqs_cis: [seq_len, head_dim // 2]
+        # freqs_cis: [seq, head_dim // 2]
 
         ndim = x.ndim
         assert 0 <= 1 < ndim
-        assert self.freqs_cis.shape == (x.shape[1], x.shape[-1])
+        assert freqs_cis.shape == (x.shape[1], x.shape[-1])
         shape = [d if i == 1 or i == ndim - 1 else 1 for i, d in enumerate(x.shape)]
 
         # freqs_cis: [1, seq, 1, head_dim // 2]
-        return self.freqs_cis.view(*shape)
+        return freqs_cis.view(*shape)
 
-    def apply_rotary_emb(self, xq: torch.Tensor, xk: torch.Tensor):
+    def apply_rotary_emb(
+        self, xq: torch.Tensor, xk: torch.Tensor, freqs_cis: torch.Tensor
+    ):
         # xq: [batch, seq, num_heads, head_dim]
         # xk: [batch, seq, num_heads, head_dim]
         # output: [batch, seq, num_heads, head_dim]
@@ -66,7 +68,7 @@ class Rope:
         # xk_: [batch, seq, num_heads, head_dim // 2]
         xk_ = torch.view_as_complex(xk.float().reshape(*xk.shape[:-1], -1, 2))
 
-        freqs_cis = self.reshape_for_broadcast(xq_)
+        freqs_cis = self.reshape_for_broadcast(xq_, freqs_cis)
 
         # xq_out: [batch, seq, num_heads, head_dim]
         xq_out = torch.view_as_real(xq_ * freqs_cis).flatten(3)
@@ -74,6 +76,11 @@ class Rope:
         xk_out = torch.view_as_real(xk_ * freqs_cis).flatten(3)
 
         return xq_out.type_as(xq), xk_out.type_as(xk)
+
+    def clip_freq_cis(self, start_pos: int, seq_len: int):
+        # freqs_cis: [max_seq_len*2, head_dim // 2]
+        # output: [seq_len, head_dim // 2]
+        return self.freqs_cis[start_pos : start_pos + seq_len]
 
 
 class GQA:
@@ -148,7 +155,8 @@ class SelfAttention(nn.Module):
         xk = xk.view(B, seq_len, self.n_kv_heads, self.head_dim)
         xv = xv.view(B, seq_len, self.n_kv_heads, self.head_dim)
 
-        xq, xk = rope.apply_rotary_emb(xq, xk)
+        freqs_cis = rope.clip_freq_cis(start_pos, seq_len)
+        xq, xk = rope.apply_rotary_emb(xq, xk, freqs_cis)
 
         self.cache_k = self.cache_k.to(xq)
         self.cache_v = self.cache_v.to(xq)
@@ -176,19 +184,32 @@ class SelfAttention(nn.Module):
 
 
 class TransformerBlock(nn.Module):
-    def __init__(self, params: ModelArgs):
+    def __init__(self, layer_id: str, params: ModelArgs):
         super().__init__()
-        self.self_attn = SelfAttention(params)
-        self.ffn = FeedForward(
+        self.layer_id = layer_id
+        # self.n_heads = params.n_heads
+        # self.dim = params.dim
+        # self.head_dim = params.dim // params.n_heads
+
+        self.attention = SelfAttention(params)
+        self.attention_norm = RMSNorm(params.dim, norm_eps=params.norm_eps)
+        self.feed_forward = FeedForward(
             params.dim, params.dim * 4, params.multiple_of, params.ffn_dim_multiplier
         )
+        self.ffn_norm = RMSNorm(params.dim, norm_eps=params.norm_eps)
 
-    def forward(self, x: torch.Tensor, rope: Rope, mask: Optional[torch.Tensor] = None):
+    def forward(
+        self,
+        x: torch.Tensor,
+        start_pos: int,
+        rope: Rope,
+        mask: Optional[torch.Tensor] = None,
+    ):
         # x: [batch, seq, dim]
         # output: [batch, seq, dim]
 
-        h = x + self.self_attn(x, rope, mask)
-        out = h + self.ffn(h)
+        h = x + self.attention(self.attention_norm(x), start_pos, rope, mask)
+        out = h + self.feed_forward(self.ffn_norm(h))
 
         # Output also accounts for the residual connection
         return out

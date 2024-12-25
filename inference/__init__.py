@@ -1,3 +1,3 @@
-from .inference import LLaMA3
+from .inference import LlaMA3
 
-__all__ = ["LLaMA3"]
+__all__ = ["LlaMA3"]
