@@ -130,7 +130,7 @@ class LlaMA3:
             logits = self.model.forward(tokens, prev_pos)
 
         stop_tokens = torch.tensor(list(self.tokenizer.stop_tokens))
-        for cur_pos in range(min_prompt_len, total_len):
+        for cur_pos in tqdm(range(min_prompt_len, total_len), desc="Generating Tokens"):
             logits = self.model.forward(tokens[:, prev_pos:cur_pos], prev_pos)
             if temperature > 0:
                 probs = torch.softmax(logits[:, -1] / temperature, dim=-1)

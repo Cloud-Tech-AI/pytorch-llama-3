@@ -4,36 +4,24 @@ set -e
 
 read -p "Enter the URL from email: " PRESIGNED_URL
 echo ""
-read -p "Enter the list of models to download without spaces (8B,8B-instruct,70B,70B-instruct), or press Enter for all: " MODEL_SIZE
+read -p "Enter the list of models to download without spaces (1B,8B), or press Enter for all: " MODEL_SIZE
 TARGET_FOLDER="./model_store"
 mkdir -p ${TARGET_FOLDER}
 
 if [[ $MODEL_SIZE == "" ]]; then
-    MODEL_SIZE="8B,8B-instruct,70B,70B-instruct"
+    MODEL_SIZE="1B,8B"
 fi
-
-echo "Downloading LICENSE and Acceptable Usage Policy"
-wget --continue ${PRESIGNED_URL/'*'/"LICENSE"} -O ${TARGET_FOLDER}"/LICENSE"
-wget --continue ${PRESIGNED_URL/'*'/"USE_POLICY"} -O ${TARGET_FOLDER}"/USE_POLICY"
 
 for m in ${MODEL_SIZE//,/ }
 do
-    if [[ $m == "8B" ]] || [[ $m == "8b" ]]; then
+    if [[ $m == "1B" ]] || [[ $m == "1b" ]]; then
+        SHARD=0
+        MODEL_FOLDER_PATH="Meta-Llama-3.2-1B"
+        MODEL_PATH="1b_pre_trained"
+    elif [[ $m == "8B" ]] || [[ $m == "8b" ]]; then
         SHARD=0
         MODEL_FOLDER_PATH="Meta-Llama-3-8B"
         MODEL_PATH="8b_pre_trained"
-    elif [[ $m == "8B-instruct" ]] || [[ $m == "8b-instruct" ]] || [[ $m == "8b-Instruct" ]] || [[ $m == "8B-Instruct" ]]; then
-        SHARD=0
-        MODEL_FOLDER_PATH="Meta-Llama-3-8B-Instruct"
-        MODEL_PATH="8b_instruction_tuned"
-    elif [[ $m == "70B" ]] || [[ $m == "70b" ]]; then
-        SHARD=7
-        MODEL_FOLDER_PATH="Meta-Llama-3-70B"
-        MODEL_PATH="70b_pre_trained"
-    elif [[ $m == "70B-instruct" ]] || [[ $m == "70b-instruct" ]] || [[ $m == "70b-Instruct" ]] || [[ $m == "70B-Instruct" ]]; then
-        SHARD=7
-        MODEL_FOLDER_PATH="Meta-Llama-3-70B-Instruct"
-        MODEL_PATH="70b_instruction_tuned"
     fi
 
     echo "Downloading ${MODEL_PATH}"

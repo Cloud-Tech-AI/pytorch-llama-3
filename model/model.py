@@ -22,7 +22,7 @@ class Transformer(nn.Module):
         self.output = nn.Linear(params.dim, params.vocab_size, bias=False)
 
         self.rotary_pe = Rope(
-            params.dim // params.n_heads, params.max_seq_len * 2, params.rope_theta
+            params.dim // params.n_heads, params.max_seq_len, params.rope_theta
         )
 
     @torch.inference_mode()
@@ -33,13 +33,15 @@ class Transformer(nn.Module):
         mask = None
         if seq_len > 1:
             mask = torch.full((seq_len, seq_len), float("-inf"), device=tokens.device)
-
             mask = torch.triu(mask, diagonal=1)
-
-            # When performing key-value caching, we compute the attention scores
-            # only for the new sequence. Thus, the matrix of scores is of size
-            # (seq_len, cache_len + seq_len), and the only masked entries are (i, j) for
-            # j > cache_len + i, since row i corresponds to token cache_len + i.
+            # The attention scores are calculated only for the current step, covering both cached and new tokens.
+            # The score matrix has dimensions (seq_len, cache_len + seq_len), where:
+            # - Rows (i): Correspond to each new token being processed.
+            # - Columns (j): Cover all cached tokens (prompt) followed by new tokens.
+            # Masking ensures each new token (row i) can only attend to:
+            # 1. All cached tokens (columns 0 to cache_len - 1).
+            # 2. Tokens up to its position in the new sequence (columns cache_len to cache_len + i).
+            # This setup prevents any token from attending to future tokens, maintaining causal attention.
             mask = torch.hstack(
                 [torch.zeros((seq_len, start_pos), device=tokens.device), mask]
             ).type_as(h)

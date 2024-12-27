@@ -25,21 +25,22 @@ class RMSNorm(nn.Module):
 
 
 class Rope:
-    def __init__(self, head_dim: int, seq_len: int, rope_theta: float = 10000):
+    def __init__(self, head_dim: int, max_seq_len: int, rope_theta: float = 10000):
         super().__init__()
-        self.freqs_cis = Rope.pre_compute_freq_cis(head_dim, seq_len, rope_theta)
+        self.freqs_cis = Rope.pre_compute_freq_cis(head_dim, max_seq_len, rope_theta)
 
     @staticmethod
-    def pre_compute_freq_cis(head_dim: int, seq_len: int, rope_theta: float):
+    def pre_compute_freq_cis(head_dim: int, max_seq_len: int, rope_theta: float):
+        new_seq_len = 2 * max_seq_len
         assert head_dim % 2 == 0, "Dimension must be even"
         # theta: [head_dim // 2]
         theta = 1.0 / (rope_theta ** (torch.arange(0, head_dim, 2).float() / head_dim))
-        # m: [seq_len]
-        m = torch.arange(seq_len).float()
+        # m: [new_seq_len]
+        m = torch.arange(new_seq_len).float()
 
-        # freqs: [seq_len, head_dim // 2]
+        # freqs: [new_seq_len, head_dim // 2]
         freqs = torch.outer(m, theta)
-        # complex_freqs: [seq_len, head_dim // 2]
+        # complex_freqs: [new_seq_len, head_dim // 2]
         complex_freqs = torch.polar(torch.ones_like(freqs), freqs)
 
         return complex_freqs
