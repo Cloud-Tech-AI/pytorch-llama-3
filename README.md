@@ -14,13 +14,13 @@ You can run the following llama models on your CPU
 - llama3.1-8B --> 8Gb RAM --> 8bit precision
 
 ## Installation
-```poetry install```
+`poetry install`
 
 ## Downloading the models
-```bash download_models.sh```<br>
-OR<br>
-```poetry install --only dev```<br>
-```llama model download --source meta --model-id <your-model-id> --meta-url <meta-email-url>```
+`bash download_models.sh`<br>
+<i><b>OR</b></i><br>
+`poetry install --only dev`<br>
+`llama model download --source meta --model-id <your-model-id> --meta-url <meta-email-url>`
 
 ## Usage
 ```python main.py```
