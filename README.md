@@ -10,7 +10,7 @@ This project contains implementations of the following components.
 - Self Attention (GQA)
 
 You can run the following llama models on your CPU
-- llama3.2-1B --> 4Gb RAM --> 16bit precision
+- llama3.2-1B --> 2Gb RAM --> 16bit precision
 - llama3.1-8B --> 8Gb RAM --> 8bit precision
 
 ## Installation
